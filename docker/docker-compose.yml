@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  etl-pipeline:
+    build: .
+    environment:
+      - NS_API_KEY=${NS_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
