@@ -327,8 +327,4 @@ docker-compose -f docker/docker-compose.yml up
 
 ## About
 
-Built as a portfolio project to demonstrate production-grade data engineering practices. I'm currently seeking **Analytics Engineer** and **Data Engineer** roles in the Netherlands.
-
-**Skills demonstrated here:** Python ETL · SQL (CTEs, window functions) · Data modeling · CI/CD pipelines · Cloud architecture design · Incremental loading patterns
-
-📧 [your.email@example.com] · 💼 [linkedin.com/in/yourname] · 📍 Netherlands
+**Skills Track:** Python ETL · SQL (CTEs, window functions) · Data modeling · CI/CD pipelines · Cloud architecture design · Incremental loading patterns
