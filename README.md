@@ -1,7 +1,7 @@
 # NL-RailTraffic-ETL-Pipeline
 
 > End-to-end data pipeline for Dutch Railways disruption analysis  
-> Python · SQL · SQLite → Azure-ready · GitHub Actions CI/CD · Docker
+> Python · SQL · Azure Blob Storage · Azure SQL · GitHub Actions CI/CD · Docker
 
 [![Pipeline Status](https://github.com/Tobiassssld/nl-railtraffic-etl-pipeline/actions/workflows/daily_pipeline.yml/badge.svg)](https://github.com/Tobiassssld/nl-railtraffic-etl-pipeline/actions)
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
@@ -14,7 +14,7 @@
 
 NS (Nederlandse Spoorwegen) publishes real-time disruption data via a public API, but there's no way to query historical patterns without building persistent storage. This project automates the daily collection, cleaning, and storage of that data — making it possible to answer questions like *"which stations are most frequently disrupted?"* or *"is maintenance downtime trending up?"*
 
-The pipeline runs automatically every day via GitHub Actions, processes 100–150 disruption records per run, and stores them in a structured SQLite database (designed to migrate to Azure SQL).
+The pipeline runs automatically every day via GitHub Actions, processes 100–150 disruption records per run, stores raw JSON in Azure Blob Storage, and loads cleaned data into Azure SQL Database.
 
 ---
 
@@ -24,7 +24,8 @@ The pipeline runs automatically every day via GitHub Actions, processes 100–15
 |---|---|
 | Ingestion | Python `requests` with retry logic |
 | Transformation | `pandas`, custom business logic |
-| Storage | SQLite (local) → Azure SQL (planned) |
+| Raw Storage | Azure Blob Storage (hierarchical: year/month/day) |
+| Database | Azure SQL Database + SQLite (local dev) |
 | Orchestration | GitHub Actions (daily cron, 06:00 UTC) |
 | Containerization | Docker |
 
@@ -39,7 +40,7 @@ GitHub Actions (06:00 UTC daily)
 ┌───────────────────────────────────────┐
 │             ETL Pipeline              │
 │                                       │
-│  NS API ──▶ cleaners.py ──▶ SQLite   │
+│  NS API ──▶ cleaners.py ──▶ Azure    │
 │  (extract)   (transform)   (load)     │
 │                                       │
 │  • Retry with exponential backoff     │
@@ -47,15 +48,12 @@ GitHub Actions (06:00 UTC daily)
 │  • Per-record error isolation         │
 └───────────────────────────────────────┘
         │
-        ▼
-┌───────────────────────────────────────┐
-│            Database                   │
-│  raw_disruptions   disruptions        │
-│  stations          daily_stats        │
-│  ── Views ──────────────────────      │
-│  active_disruptions                   │
-│  station_disruption_stats             │
-└───────────────────────────────────────┘
+        ├──▶ Azure Blob Storage
+        │    raw JSON (year/month/day/)
+        │
+        └──▶ Azure SQL Database
+             raw_disruptions   disruptions
+             stations          daily_stats
 ```
 
 ---
@@ -143,5 +141,3 @@ docker-compose -f docker/docker-compose.yml up
 - [ ] Connect Power BI dashboard to Azure SQL
 
 ---
-
-## About
