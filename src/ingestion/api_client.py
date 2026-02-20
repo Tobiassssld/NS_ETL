@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import os
+from azure.storage.blob import BlobServiceClient
 
 # 加载.env文件里的配置
 load_dotenv()
@@ -33,6 +35,15 @@ class NSAPIClient:
         self.headers = {
             'Ocp-Apim-Subscription-Key': self.api_key
         }
+
+        self.blob_connection_str = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
+        self.container_name = os.getenv('AZURE_CONTAINER_NAME', 'raw-disruptions')
+        self.blob_client = None
+
+        if self.blob_connection_str:
+            self.blob_client = BlobServiceClient.from_connection_string(
+        self.blob_connection_str
+        )
     
     def fetch_disruptions(self, max_retries=3):
         """
@@ -76,25 +87,33 @@ class NSAPIClient:
                 return []
     
     def _save_raw_data(self, data):
-        """
-        把原始JSON数据保存到data/raw/文件夹
-        文件名格式：disruptions_20250214_153045.json
-        """
-        # 生成时间戳（年月日_时分秒）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # 构建文件路径
         filename = f"disruptions_{timestamp}.json"
+        json_content = json.dumps(data, indent=2, ensure_ascii=False)
+        
+        # 1. Save locally (unchanged)
         filepath = Path("data/raw") / filename
-        
-        # 确保文件夹存在
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        
-        # 写入文件（indent=2让JSON更易读）
         with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.write(json_content)
+        print(f"💾 Local: {filepath}")
         
-        print(f"💾 原始数据已保存到: {filepath}")
+        # 2. Upload to Azure Blob (if configured)
+        if self.blob_client:
+            try:
+                # Hierarchical path: year/month/day/filename.json
+                blob_path = (
+                    f"{datetime.now().strftime('%Y/%m/%d')}/{filename}"
+                )
+                blob = self.blob_client.get_blob_client(
+                    container=self.container_name,
+                    blob=blob_path
+                )
+                blob.upload_blob(json_content, overwrite=True)
+                print(f"☁️  Azure Blob: {self.container_name}/{blob_path}")
+            except Exception as e:
+                print(f"⚠️  Azure upload failed (continuing): {e}")
+                # Don't crash the pipeline if cloud upload fails
 
 
 # ===== 测试代码 =====

@@ -38,6 +38,7 @@ jobs:
     - name: 🚀 Run ETL Pipeline
       env:
         NS_API_KEY: ${{ secrets.NS_API_KEY }}
+        AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
       run: |
         python src/pipeline.py
     
@@ -63,3 +64,5 @@ jobs:
       if: failure()
       run: |
         echo "Pipeline failed! Check the logs for details."
+    
+    
