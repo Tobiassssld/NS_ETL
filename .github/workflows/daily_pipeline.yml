@@ -15,35 +15,43 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4  # ✅ 也顺便升级到v4
+    - name: Checkout code
+      uses: actions/checkout@v4  
     
-    - name: 🐍 Set up Python 3.11
-      uses: actions/setup-python@v5  # ✅ 升级到v5
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5  
       with:
         python-version: '3.11'
         cache: 'pip'
+
+    - name: Install ODBC driver
+      run: |
+        curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+        sudo apt-get update
+        ACCEPT_EULA=Y sudo apt-get install -y msodbcsql18
     
-    - name: 📦 Install dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: 📁 Create data directories
+    - name: Create data directories
       run: |
         mkdir -p data/raw
         mkdir -p data/processed
         mkdir -p logs
     
-    - name: 🚀 Run ETL Pipeline
+    - name: Run ETL Pipeline
       env:
         NS_API_KEY: ${{ secrets.NS_API_KEY }}
         AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        AZURE_SQL_CONNECTION_STRING: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
       run: |
         python src/pipeline.py
     
-    - name: 💾 Upload pipeline artifacts
-      uses: actions/upload-artifact@v4  # ✅ 修复：v3 → v4
+    - name: Upload pipeline artifacts
+      uses: actions/upload-artifact@v4  
       if: always()
       with:
         name: pipeline-outputs-${{ github.run_number }}
@@ -52,15 +60,15 @@ jobs:
           logs/*.log
         retention-days: 7
     
-    - name: 📊 Upload database
-      uses: actions/upload-artifact@v4  # ✅ 修复：v3 → v4
+    - name: Upload database
+      uses: actions/upload-artifact@v4  
       if: success()
       with:
         name: nl-rail-database-${{ github.run_number }}
         path: data/nl_rail.db
         retention-days: 30
     
-    - name: 📧 Notify on failure
+    - name: Notify on failure
       if: failure()
       run: |
         echo "Pipeline failed! Check the logs for details."

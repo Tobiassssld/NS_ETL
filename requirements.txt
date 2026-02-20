@@ -6,3 +6,4 @@ python-dotenv==1.0.0
 pytest==7.4.3
 great-expectations==0.18.8  # Optional: Data quality framework
 azure-storage-blob==12.19.0
+pyodbc==5.0.1
