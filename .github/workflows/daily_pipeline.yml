@@ -16,20 +16,13 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4  
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.11
-      uses: actions/setup-python@v5  
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
-
-    - name: Install ODBC driver
-      run: |
-        curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-        curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-        sudo apt-get update
-        ACCEPT_EULA=Y sudo apt-get install -y msodbcsql18
     
     - name: Install dependencies
       run: |
@@ -42,16 +35,43 @@ jobs:
         mkdir -p data/processed
         mkdir -p logs
     
+    - name: Get GitHub Runner public IP
+      id: ip
+      run: echo "runner_ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Add temporary firewall rule for Runner IP
+      run: |
+        az sql server firewall-rule create \
+          --resource-group rg-railtraffic \
+          --server nl-rail-server-tobiasliu \
+          --name "GitHubActions-${{ github.run_id }}" \
+          --start-ip-address ${{ steps.ip.outputs.runner_ip }} \
+          --end-ip-address ${{ steps.ip.outputs.runner_ip }}
+        echo "Firewall rule created for IP: ${{ steps.ip.outputs.runner_ip }}"
+    
     - name: Run ETL Pipeline
       env:
         NS_API_KEY: ${{ secrets.NS_API_KEY }}
-        AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
         AZURE_SQL_CONNECTION_STRING: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
       run: |
         python src/pipeline.py
     
+    - name: Remove temporary firewall rule
+      if: always()
+      run: |
+        az sql server firewall-rule delete \
+          --resource-group rg-railtraffic \
+          --server nl-rail-server-tobiasliu \
+          --name "GitHubActions-${{ github.run_id }}" || true
+        echo "Firewall rule cleaned up"
+    
     - name: Upload pipeline artifacts
-      uses: actions/upload-artifact@v4  
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: pipeline-outputs-${{ github.run_number }}
@@ -61,7 +81,7 @@ jobs:
         retention-days: 7
     
     - name: Upload database
-      uses: actions/upload-artifact@v4  
+      uses: actions/upload-artifact@v4
       if: success()
       with:
         name: nl-rail-database-${{ github.run_number }}
@@ -72,5 +92,3 @@ jobs:
       if: failure()
       run: |
         echo "Pipeline failed! Check the logs for details."
-    
-    
